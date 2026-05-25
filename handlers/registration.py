@@ -232,4 +232,5 @@ def build_registration_handler() -> ConversationHandler:
         allow_reentry=True,
         name='registration',
         persistent=False,
+        per_message=False,
     )
