@@ -17,6 +17,8 @@ _setting_field: dict[int, str]   = {}  # admin_user_id → field name
 _nuke_step: dict[int, int] = {}      # admin_chat_id → step (1 or 2)
 # Confirmremove pending
 _remove_pending: dict[int, str] = {} # admin_chat_id → house_name
+# Addhouse gender-picker pending
+_addhouse_pending: dict[int, tuple] = {}  # admin_user_id → (name, capacity)
 
 
 def _require_admin(func):
@@ -229,31 +231,55 @@ async def cmd_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @_require_admin
 async def cmd_addhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Usage: /addhouse <name> <M|F> <capacity> [address]
+    # Usage: /addhouse <name> <capacity>
     args = context.args
-    if len(args) < 3:
-        await update.message.reply_text("Usage: /addhouse <name> <M|F> <capacity> [address]")
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /addhouse <name> <capacity>")
         return
     name = args[0]
-    gender = args[1].upper()
-    if gender not in ('M', 'F'):
-        await update.message.reply_text("Gender must be M or F.")
-        return
     try:
-        capacity = int(args[2])
+        capacity = int(args[1])
     except ValueError:
         await update.message.reply_text("Capacity must be a number.")
         return
-    address = ' '.join(args[3:]) if len(args) > 3 else ''
 
     if db.get_house_by_name(name):
         await update.message.reply_text(t('en', 'admin_house_exists', name=name), parse_mode=ParseMode.MARKDOWN)
         return
 
-    db.add_house(name, gender, capacity, address)
+    _addhouse_pending[update.effective_user.id] = (name, capacity)
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("♀️ Female", callback_data='addhouse_gender_F'),
+        InlineKeyboardButton("♂️ Male",   callback_data='addhouse_gender_M'),
+    ]])
     await update.message.reply_text(
-        t('en', 'admin_house_added', name=name, gender=gender, capacity=capacity),
-        parse_mode=ParseMode.MARKDOWN
+        f"Choose gender for *{name}* (capacity {capacity}):",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+async def cb_addhouse_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gender selector callback for /addhouse."""
+    query = update.callback_query
+    admin_id = update.effective_user.id
+    if not utils.is_admin(admin_id):
+        await query.answer("No permission.", show_alert=True)
+        return
+    await query.answer()
+
+    pending = _addhouse_pending.pop(admin_id, None)
+    if not pending:
+        await query.edit_message_text("⚠️ No pending house addition. Use /addhouse again.")
+        return
+
+    name, capacity = pending
+    gender = query.data.split('_')[-1]  # 'M' or 'F'
+    gender_label = '♀️ Female' if gender == 'F' else '♂️ Male'
+    db.add_house(name, gender, capacity)
+    await query.edit_message_text(
+        t('en', 'admin_house_added', name=name, gender=gender_label, capacity=capacity),
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
@@ -302,7 +328,7 @@ async def cmd_listhouses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for h in houses:
         taken = db.get_house_occupancy(h['id'])
         gender_label = '♂️' if h['gender'] == 'M' else '♀️'
-        lines.append(f"{gender_label} *{h['name']}* — {taken}/{h['capacity']} | {h.get('address', '—')}")
+        lines.append(f"{gender_label} *{h['name']}* — {taken}/{h['capacity']}")
     await update.message.reply_text(
         t('en', 'admin_houses_list', list='\n'.join(lines)),
         parse_mode=ParseMode.MARKDOWN
@@ -520,6 +546,7 @@ def get_admin_handlers() -> list:
     return [
         CallbackQueryHandler(cb_admin_approve,    pattern='^admin_approve_'),
         CallbackQueryHandler(cb_admin_deny_start, pattern='^admin_deny_'),
+        CallbackQueryHandler(cb_addhouse_gender,  pattern='^addhouse_gender_'),
         CommandHandler('pending',       cmd_pending),
         CommandHandler('approve',       cmd_approve),
         CommandHandler('deny',          cmd_deny),

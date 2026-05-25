@@ -83,10 +83,9 @@ def get_house_by_id(house_id: str) -> dict | None:
     res = sb.table('houses').select('*').eq('id', house_id).execute()
     return res.data[0] if res.data else None
 
-def add_house(name: str, gender: str, capacity: int, address: str = '', notes: str = '') -> dict:
+def add_house(name: str, gender: str, capacity: int) -> dict:
     res = sb.table('houses').insert({
         'name': name, 'gender': gender, 'capacity': capacity,
-        'address': address, 'notes': notes
     }).execute()
     return res.data[0] if res.data else {}
 

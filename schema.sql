@@ -33,9 +33,7 @@ CREATE TABLE IF NOT EXISTS houses (
   id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name     TEXT NOT NULL UNIQUE,
   gender   TEXT CHECK (gender IN ('M', 'F')),
-  capacity INTEGER NOT NULL,
-  address  TEXT,
-  notes    TEXT
+  capacity INTEGER NOT NULL
 );
 
 -- One reservation per participant

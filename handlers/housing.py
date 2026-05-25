@@ -27,7 +27,7 @@ async def handle_housing_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
             [InlineKeyboardButton(t(lang, 'btn_cancel_reservation'), callback_data='housing_cancel')]
         ])
         await query.edit_message_text(
-            t(lang, 'current_reservation', name=house['name'], address=house.get('address', '—')),
+            t(lang, 'current_reservation', name=house['name']),
             reply_markup=keyboard,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -98,7 +98,7 @@ async def handle_house_select(update: Update, context: ContextTypes.DEFAULT_TYPE
         [InlineKeyboardButton(t(lang, 'btn_confirm_no'), callback_data='menu_housing')],
     ])
     await query.edit_message_text(
-        t(lang, 'house_confirm', name=house['name'], address=house.get('address', '—')),
+        t(lang, 'house_confirm', name=house['name']),
         reply_markup=keyboard,
         parse_mode=ParseMode.MARKDOWN
     )
@@ -121,12 +121,8 @@ async def handle_house_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     db.create_reservation(house_id, participant['id'])
-    notes = house.get('notes') or ''
     await query.edit_message_text(
-        t(lang, 'house_reserved',
-          name=house['name'],
-          address=house.get('address', '—'),
-          notes=notes),
+        t(lang, 'house_reserved', name=house['name']),
         parse_mode=ParseMode.MARKDOWN
     )
 
