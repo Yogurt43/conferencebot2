@@ -24,6 +24,25 @@ def _md_escape(s: str) -> str:
     return s.replace('_', r'\_').replace('*', r'\*').replace('`', r'\`').replace('[', r'\[')
 
 
+def _contact_line(participant: dict) -> str:
+    """Return a Markdown contact line for admin notifications.
+
+    Preference order:
+      1. @username  → clickable Telegram profile link
+      2. phone + tg://user deep link
+      3. tg://user deep link only
+    """
+    username = participant.get('username', '')
+    phone    = participant.get('phone', '')
+    chat_id  = participant.get('chat_id', '')
+
+    if username:
+        return f"[@{username}](https://t.me/{username})"
+    if phone:
+        return f"☎️ {phone} · [Open chat](tg://user?id={chat_id})"
+    return f"[Open chat](tg://user?id={chat_id})"
+
+
 # In-memory state for "expecting message" (keyed by chat_id)
 _awaiting_qa: set[int] = set()
 _awaiting_msg: set[int] = set()
@@ -139,7 +158,9 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text_safe = _md_escape(text)
             await context.bot.send_message(
                 target,
-                f"❓ *Question from {name_safe}*\n\n{text_safe}",
+                f"❓ *Question from {name_safe}*\n"
+                f"{_contact_line(participant)}\n\n"
+                f"{text_safe}",
                 parse_mode=ParseMode.MARKDOWN,
             )
         return
@@ -198,9 +219,12 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 name = participant.get('full_name', 'Unknown') if participant else 'Unknown'
                 name_safe = _md_escape(name)
                 text_safe = _md_escape(text)
+                contact = _contact_line(participant) if participant else ''
                 await context.bot.send_message(
                     target,
-                    f"📨 *Message from {name_safe}*\n\n{text_safe}",
+                    f"📨 *Message from {name_safe}*\n"
+                    f"{contact}\n\n"
+                    f"_{text_safe}_",
                     parse_mode=ParseMode.MARKDOWN,
                 )
         return
