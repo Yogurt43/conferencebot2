@@ -524,6 +524,20 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _show_main_menu(update, lang)
 
 
+async def handle_onhold_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Group-1 handler: treat photos from on_hold users as receipt resubmissions.
+
+    When a user is put on hold their ConversationHandler state is END, so the
+    normal RECEIPT state handler never fires.  This catches any photo they send
+    and runs the same handle_receipt logic so they don't have to /start first.
+    """
+    chat_id     = update.effective_chat.id
+    participant = db.get_participant(chat_id)
+    if not participant or participant.get('status') != 'on_hold':
+        return  # only act for on_hold users; all others handled elsewhere
+    await handle_receipt(update, context)
+
+
 def build_registration_handler() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[CommandHandler('start', start)],

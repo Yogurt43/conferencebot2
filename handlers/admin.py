@@ -74,6 +74,62 @@ async def _send_housing_prompt_if_needed(bot, participant: dict, lang: str) -> N
 # ─── Registration review ───────────────────────────────────────────────────────
 
 @_require_admin
+async def cmd_onhold(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    held = db.get_participants_by_status('on_hold')
+    if not held:
+        await update.message.reply_text("⏸ No applications currently on hold.")
+        return
+
+    count = len(held)
+    await update.message.reply_text(
+        f"⏸ *{count} application{'s' if count != 1 else ''} on hold:*",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    for p in held:
+        cid       = p['chat_id']
+        name      = p.get('full_name', '?')
+        age       = p.get('age', '?')
+        gender    = 'M' if p.get('gender') == 'M' else 'F'
+        phone     = p.get('phone', '—')
+        username  = p.get('username', '')
+        uname_str = f"@{username}" if username else f"ID: {cid}"
+        reason    = p.get('denial_reason', '—')
+        caption = (
+            f"⏸ *{name}* | {age}y | {gender}\n"
+            f"📱 {uname_str} | ☎️ {phone}\n"
+            f"🆔 `{cid}`\n\n"
+            f"📝 Hold reason: {reason}"
+        )
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Approve", callback_data=f"admin_approve_{cid}"),
+            InlineKeyboardButton("❌ Deny",    callback_data=f"admin_deny_{cid}"),
+        ]])
+        receipt = db.get_latest_receipt(p['id'])
+        if receipt:
+            try:
+                await context.bot.send_photo(
+                    update.effective_chat.id,
+                    receipt['file_id'],
+                    caption=caption,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=keyboard,
+                )
+            except Exception:
+                await update.message.reply_text(
+                    caption + "\n\n⚠️ _Receipt photo unavailable_",
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=keyboard,
+                )
+        else:
+            await update.message.reply_text(
+                caption + "\n\n⚠️ _No receipt on file_",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard,
+            )
+
+
+@_require_admin
 async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = db.get_participants_by_status('pending_approval')
     if not pending:
@@ -597,6 +653,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Admin commands:*\n\n"
         "📋 *Registration*\n"
         "/pending — list pending registrations\n"
+        "/onhold — list applications on hold\n"
         "/approve `<id>` — approve a user\n"
         "/deny `<id>` `<reason>` — deny a user\n"
         "/viewreceipt `<id>` — view a user's receipt\n"
@@ -660,6 +717,7 @@ def get_admin_handlers() -> list:
         CallbackQueryHandler(cb_admin_hold_start, pattern='^admin_hold_'),
         CallbackQueryHandler(cb_admin_deny_start, pattern='^admin_deny_'),
         CommandHandler('help',          cmd_help),
+        CommandHandler('onhold',        cmd_onhold),
         CommandHandler('pending',       cmd_pending),
         CommandHandler('approve',       cmd_approve),
         CommandHandler('deny',          cmd_deny),

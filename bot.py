@@ -10,7 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 from config import BOT_TOKEN, WEBHOOK_URL
 from persistence import SupabasePersistence
-from handlers.registration import build_registration_handler, menu_command
+from handlers.registration import build_registration_handler, menu_command, handle_onhold_photo
 from handlers.housing import get_housing_handlers
 from handlers.info import get_info_handlers
 from handlers.admin import get_admin_handlers
@@ -60,6 +60,12 @@ for handler in get_info_handlers():
 
 for handler in get_admin_handlers():
     ptb_app.add_handler(handler)
+
+# Group 1: catch photos from on_hold users who haven't re-entered via /start
+ptb_app.add_handler(
+    MessageHandler(filters.PHOTO | filters.Document.ALL, handle_onhold_photo),
+    group=1,
+)
 
 
 async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
