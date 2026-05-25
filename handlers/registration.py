@@ -540,8 +540,9 @@ def build_registration_handler() -> ConversationHandler:
                            MessageHandler(filters.TEXT & ~filters.COMMAND, _prompt_use_buttons)],
             PHONE:        [MessageHandler(filters.CONTACT, handle_phone)],
             PAYMENT_STEP: [],
-            RECEIPT:      [MessageHandler(filters.PHOTO | filters.Document.ALL, handle_receipt),
-                           MessageHandler(filters.TEXT & ~filters.COMMAND, _prompt_use_buttons)],
+            RECEIPT:      [MessageHandler(filters.PHOTO | filters.Document.ALL, handle_receipt)],
+            # No text handler in RECEIPT — group 1 handle_text_input manages question/msg flows,
+            # and unrecognised text should be silent rather than showing a confusing "use buttons" nudge.
         },
         fallbacks=[CommandHandler('start', start)],
         allow_reentry=True,

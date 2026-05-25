@@ -118,11 +118,11 @@ S = {
         'btn_have_question':        '❓ Have a Question?',
         'question_prompt_pre_approval': (
             '❓ Type your question and we\'ll pass it to the organizers.\n\n'
-            '_To submit your payment, send a photo or screenshot above — not here._'
+            '_After sending your question, just send your payment receipt photo in this chat._'
         ),
         'question_sent_pre_approval': (
             '✅ Your question has been sent! The organizers will reach out to you directly.\n\n'
-            'To submit your payment, send a photo or screenshot above 👆'
+            '📎 When ready, send your payment receipt photo here in this chat.'
         ),
 
         # ── Admin ─────────────────────────────────────────────────────────────
@@ -280,11 +280,11 @@ S = {
         'btn_have_question':        '❓ Маєте питання?',
         'question_prompt_pre_approval': (
             '❓ Введіть ваше питання і ми передамо його організаторам.\n\n'
-            '_Щоб надіслати оплату, надішліть фото або скриншот вище — не тут._'
+            '_Після надсилання питання просто надішліть фото квитанції про оплату в цьому чаті._'
         ),
         'question_sent_pre_approval': (
             '✅ Ваше питання надіслано! Організатори зв\'яжуться з вами напряму.\n\n'
-            'Щоб надіслати оплату, надішліть фото або скриншот вище 👆'
+            '📎 Коли будете готові, надішліть фото квитанції тут у цьому чаті.'
         ),
 
         # ── Admin ─────────────────────────────────────────────────────────────
