@@ -198,9 +198,8 @@ async def cb_admin_deny_start(update: Update, context: ContextTypes.DEFAULT_TYPE
     _deny_msg_info[admin_user_id] = (query.message.chat_id, query.message.message_id)
 
     name = participant.get('full_name', str(target_id))
-    # Send to admin's private DM — bots can't read plain text in groups (privacy mode)
     await context.bot.send_message(
-        admin_user_id,
+        query.message.chat_id,
         f"✏️ Type the denial reason for *{name}*:",
         parse_mode=ParseMode.MARKDOWN,
     )
