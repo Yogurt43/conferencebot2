@@ -72,8 +72,9 @@ def get_houses_for_gender(gender: str) -> list[dict]:
     return res.data
 
 def get_all_houses() -> list[dict]:
-    res = sb.table('houses').select('*').order('name').execute()
-    return res.data
+    res = sb.table('houses').select('*').execute()
+    # M first, then F; alphabetical within each gender
+    return sorted(res.data, key=lambda h: (0 if h.get('gender') == 'M' else 1, h.get('name', '')))
 
 def get_house_by_name(name: str) -> dict | None:
     res = sb.table('houses').select('*').eq('name', name).execute()
