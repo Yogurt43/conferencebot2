@@ -15,7 +15,6 @@ _HOUSING_TEXTS = {t('en', 'btn_housing'), t('uk', 'btn_housing')}
 
 # All menu button texts used to build MessageHandler filters (schedule, venue, qa, coord)
 _SCHEDULE_TEXTS = [t('en', 'btn_schedule'), t('uk', 'btn_schedule')]
-_VENUE_TEXTS    = [t('en', 'btn_venue'),    t('uk', 'btn_venue')]
 _QA_TEXTS       = [t('en', 'btn_qa'),       t('uk', 'btn_qa')]
 _COORD_TEXTS    = [t('en', 'btn_coordinator'), t('uk', 'btn_coordinator')]
 
@@ -56,14 +55,6 @@ async def handle_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = db.get_setting('schedule_text')
     await update.message.reply_text(text or t(lang, 'no_schedule'), parse_mode=ParseMode.MARKDOWN)
 
-
-async def handle_venue(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    participant = db.get_participant(update.effective_chat.id)
-    if not participant or participant.get('status') != 'approved':
-        return
-    lang = utils.get_lang(participant)
-    text = db.get_setting('venue_text')
-    await update.message.reply_text(text or t(lang, 'no_venue'), parse_mode=ParseMode.MARKDOWN)
 
 
 async def handle_qa_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -235,7 +226,6 @@ def get_info_handlers() -> list:
         # Reply-keyboard menu buttons — specific text matches must come BEFORE
         # the catch-all text handler so they win within group 1.
         MessageHandler(filters.Text(_SCHEDULE_TEXTS), handle_schedule),
-        MessageHandler(filters.Text(_VENUE_TEXTS),    handle_venue),
         MessageHandler(filters.Text(_QA_TEXTS),       handle_qa_start),
         MessageHandler(filters.Text(_COORD_TEXTS),    handle_coordinator_start),
         # Pre-approval "Have a question?" — still an inline button during registration

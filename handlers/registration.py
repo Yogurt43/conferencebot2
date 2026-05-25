@@ -483,7 +483,7 @@ def _get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 def _main_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([
         [KeyboardButton(t(lang, 'btn_housing'))],
-        [KeyboardButton(t(lang, 'btn_schedule')), KeyboardButton(t(lang, 'btn_venue'))],
+        [KeyboardButton(t(lang, 'btn_schedule'))],
         [KeyboardButton(t(lang, 'btn_qa'))],
         [KeyboardButton(t(lang, 'btn_coordinator'))],
     ], resize_keyboard=True, input_field_placeholder="Choose an option…")
