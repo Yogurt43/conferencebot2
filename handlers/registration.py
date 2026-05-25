@@ -120,13 +120,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
             return RECEIPT
 
-    # New user — welcome message first, then language selection
-    await update.message.reply_text(
-        t('en', 'welcome_message',
-          price_housing=PRICE_WITH_HOUSING,
-          price_no_housing=PRICE_WITHOUT_HOUSING),
-        parse_mode=ParseMode.MARKDOWN
-    )
+    # New user — language selection
     await update.message.reply_text(
         t('en', 'choose_lang'),
         reply_markup=_lang_keyboard()
