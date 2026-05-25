@@ -7,6 +7,7 @@ import db
 import utils
 from strings import t
 from config import OWNER_ID, OWNER_IDS, GROUP_CHAT_ID
+from handlers.registration import _send_main_menu_to
 
 # State for deny flow (keyed by admin USER id, works in groups too)
 _deny_pending:  dict[int, int]   = {}  # admin_user_id → target_chat_id
@@ -15,6 +16,8 @@ _deny_msg_info: dict[int, tuple] = {}  # admin_user_id → (chat_id, message_id)
 _setting_field: dict[int, str]   = {}  # admin_user_id → field name
 # Nuke confirmation steps
 _nuke_step: dict[int, int] = {}      # admin_chat_id → step (1 or 2)
+_hold_pending:  dict[int, int]   = {}  # admin_user_id → target_chat_id
+_hold_msg_info: dict[int, tuple] = {}  # admin_user_id → (chat_id, message_id)
 
 
 def _require_admin(func):
@@ -124,9 +127,10 @@ async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t('en', 'admin_user_not_found'))
         return
     db.update_participant(target_id, {'status': 'approved'})
+    db.confirm_reservation(participant['id'])
     lang = utils.get_lang(participant)
     await context.bot.send_message(target_id, t(lang, 'approved_welcome'), parse_mode=ParseMode.MARKDOWN)
-    await _send_housing_prompt_if_needed(context.bot, participant, lang)
+    await _send_main_menu_to(context.bot, target_id, lang)
     await update.message.reply_text(t('en', 'admin_approved', name=participant.get('full_name', str(target_id))))
 
 
@@ -188,9 +192,10 @@ async def cb_admin_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     db.update_participant(target_id, {'status': 'approved'})
+    db.confirm_reservation(participant['id'])
     lang = utils.get_lang(participant)
     await context.bot.send_message(target_id, t(lang, 'approved_welcome'), parse_mode=ParseMode.MARKDOWN)
-    await _send_housing_prompt_if_needed(context.bot, participant, lang)
+    await _send_main_menu_to(context.bot, target_id, lang)
 
     admin_name = update.effective_user.first_name or "Admin"
     name = participant.get('full_name', str(target_id))
