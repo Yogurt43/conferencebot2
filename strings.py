@@ -30,7 +30,7 @@ S = {
         'choose_gender':        '👤 Please select your gender:',
         'btn_male':             '♂️ Male',
         'btn_female':           '♀️ Female',
-        'share_phone':          '📱 Please share your phone number so we can contact you:',
+        'share_phone':          '📱 Please share your phone number:',
         'btn_share_phone':      '📲 Share Phone Number',
         'payment_instructions': (
             f'💳 *Payment*\n\n'
@@ -151,7 +151,7 @@ S = {
         'choose_gender':        '👤 Будь ласка, оберіть вашу стать:',
         'btn_male':             '♂️ Чоловік',
         'btn_female':           '♀️ Жінка',
-        'share_phone':          '📱 Будь ласка, поділіться своїм номером телефону, щоб ми могли зв\'язатися з вами:',
+        'share_phone':          '📱 Будь ласка, поділіться своїм номером телефону:',
         'btn_share_phone':      '📲 Поділитися номером телефону',
         'payment_instructions': (
             f'💳 *Оплата*\n\n'
