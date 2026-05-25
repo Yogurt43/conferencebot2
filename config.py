@@ -22,5 +22,9 @@ SUPABASE_ANON_KEY    = os.environ["SUPABASE_ANON_KEY"]
 # ─── Payment ──────────────────────────────────────────────────────────────────
 PAYMENT_LINK = os.getenv("PAYMENT_LINK", "PAYMENT_LINK_PLACEHOLDER")
 
+# ─── Registration pricing ──────────────────────────────────────────────────────
+PRICE_WITH_HOUSING    = 175   # registration fee with conference housing
+PRICE_WITHOUT_HOUSING = 100   # registration fee without housing
+
 # ─── Feature flags (defaults — overridden at runtime via bot_settings) ────────
 QA_RATE_LIMIT = 3   # max questions per participant

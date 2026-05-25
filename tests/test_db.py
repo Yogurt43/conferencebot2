@@ -48,3 +48,37 @@ def test_get_setting_returns_empty_when_not_found(mock_sb):
     mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
     result = db.get_setting('missing_key')
     assert result == ''
+
+def test_create_tentative_reservation(mock_sb):
+    mock_sb.table.return_value.insert.return_value.execute.return_value.data = [
+        {'id': 'res-1', 'house_id': 'h1', 'participant_id': 'p1', 'status': 'tentative'}
+    ]
+    result = db.create_tentative_reservation('h1', 'p1')
+    assert result['status'] == 'tentative'
+    # Verify the insert was called with status='tentative'
+    call_args = mock_sb.table.return_value.insert.call_args[0][0]
+    assert call_args['status'] == 'tentative'
+    assert call_args['house_id'] == 'h1'
+    assert call_args['participant_id'] == 'p1'
+
+def test_confirm_reservation(mock_sb):
+    mock_sb.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
+    db.confirm_reservation('p1')
+    update_call = mock_sb.table.return_value.update.call_args[0][0]
+    assert update_call == {'status': 'confirmed'}
+    # Verify both eq filters are applied
+    first_eq = mock_sb.table.return_value.update.return_value.eq.call_args
+    assert first_eq[0] == ('participant_id', 'p1')
+    second_eq = mock_sb.table.return_value.update.return_value.eq.return_value.eq.call_args
+    assert second_eq[0] == ('status', 'tentative')
+
+def test_release_tentative_reservation(mock_sb):
+    mock_sb.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
+    db.release_tentative_reservation('p1')
+    # Verify delete was called (not update)
+    mock_sb.table.return_value.delete.assert_called_once()
+    # Verify both eq filters are applied
+    first_eq = mock_sb.table.return_value.delete.return_value.eq.call_args
+    assert first_eq[0] == ('participant_id', 'p1')
+    second_eq = mock_sb.table.return_value.delete.return_value.eq.return_value.eq.call_args
+    assert second_eq[0] == ('status', 'tentative')

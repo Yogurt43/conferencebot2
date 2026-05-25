@@ -116,6 +116,27 @@ def create_reservation(house_id: str, participant_id: str) -> dict:
     }).execute()
     return res.data[0] if res.data else {}
 
+def create_tentative_reservation(house_id: str, participant_id: str) -> dict:
+    """Create a tentative reservation during registration. Confirmed on approval."""
+    res = sb.table('house_reservations').insert({
+        'house_id': house_id,
+        'participant_id': participant_id,
+        'status': 'tentative',
+    }).execute()
+    return res.data[0] if res.data else {}
+
+def confirm_reservation(participant_id: str) -> None:
+    """Upgrade a tentative reservation to confirmed on participant approval."""
+    sb.table('house_reservations').update({'status': 'confirmed'}).eq(
+        'participant_id', participant_id
+    ).eq('status', 'tentative').execute()
+
+def release_tentative_reservation(participant_id: str) -> None:
+    """Delete any tentative reservation for a participant (on denial or re-entry)."""
+    sb.table('house_reservations').delete().eq(
+        'participant_id', participant_id
+    ).eq('status', 'tentative').execute()
+
 def delete_reservation(participant_id: str) -> None:
     sb.table('house_reservations').delete().eq('participant_id', participant_id).execute()
 

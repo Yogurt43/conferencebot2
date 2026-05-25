@@ -6,10 +6,10 @@ from telegram.constants import ParseMode
 import db
 import utils
 from strings import t
-from config import PAYMENT_LINK, GROUP_CHAT_ID, OWNER_ID
+from config import PAYMENT_LINK, GROUP_CHAT_ID, OWNER_ID, PRICE_WITH_HOUSING, PRICE_WITHOUT_HOUSING
 
 # Conversation states
-LANG, NAME, AGE, GENDER, HOUSING_PREF, PHONE, PAYMENT_STEP, RECEIPT = range(8)
+LANG, NAME, AGE, GENDER, HOUSING_PREF, HOUSE_SELECT, PHONE, PAYMENT_STEP, RECEIPT = range(9)
 
 
 def _lang_keyboard():
@@ -59,18 +59,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 t(lang, 'denied_resubmit', reason=participant.get('denial_reason', '—')),
                 parse_mode=ParseMode.MARKDOWN
             )
-            # Jump straight to receipt upload — they don't redo the whole form
             db.update_participant(chat_id, {'status': 'pending_payment'})
             # Housing question is mandatory — ask it if not yet answered
             if participant.get('needs_housing') is None:
                 await update.message.reply_text(
-                    t(lang, 'housing_prompt'),
+                    t(lang, 'housing_pref_with_price',
+                      price_housing=PRICE_WITH_HOUSING,
+                      price_no_housing=PRICE_WITHOUT_HOUSING),
                     reply_markup=_housing_keyboard(lang),
+                    parse_mode=ParseMode.MARKDOWN,
                 )
                 return HOUSING_PREF
+            # Needs housing but tentative was released on denial — re-select
+            if participant.get('needs_housing') and not db.get_reservation(participant['id']):
+                gender = participant.get('gender', 'M')
+                houses = db.get_houses_for_gender(gender)
+                if houses:
+                    buttons = [
+                        [InlineKeyboardButton(
+                            utils.format_house_button(h, db.get_house_occupancy(h['id']), lang),
+                            callback_data=f"reg_house_{h['id']}"
+                        )]
+                        for h in houses
+                    ]
+                    await update.message.reply_text(
+                        t(lang, 'housing_list_header'),
+                        reply_markup=InlineKeyboardMarkup(buttons),
+                    )
+                    return HOUSE_SELECT
+            # Straight to receipt
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(t(lang, 'btn_have_question'), callback_data='pre_approval_question')
+            ]])
+            await update.message.reply_text(
+                t(lang, 'upload_receipt'),
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN,
+            )
             return RECEIPT
 
-    # New user — start language selection
+        if status == 'on_hold':
+            reason = participant.get('denial_reason', '—')
+            await update.message.reply_text(
+                t(lang, 'on_hold_resubmit', reason=reason),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            db.update_participant(chat_id, {'status': 'pending_payment'})
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(t(lang, 'btn_have_question'), callback_data='pre_approval_question')
+            ]])
+            await update.message.reply_text(
+                t(lang, 'upload_receipt'),
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return RECEIPT
+
+    # New user — welcome message first, then language selection
+    await update.message.reply_text(
+        t('en', 'welcome_message',
+          price_housing=PRICE_WITH_HOUSING,
+          price_no_housing=PRICE_WITHOUT_HOUSING),
+        parse_mode=ParseMode.MARKDOWN
+    )
     await update.message.reply_text(
         t('en', 'choose_lang'),
         reply_markup=_lang_keyboard()
@@ -136,8 +187,11 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     await query.edit_message_text(t(lang, 'choose_gender') + " ✅")
     await query.message.reply_text(
-        t(lang, 'housing_prompt'),
+        t(lang, 'housing_pref_with_price',
+          price_housing=PRICE_WITH_HOUSING,
+          price_no_housing=PRICE_WITHOUT_HOUSING),
         reply_markup=_housing_keyboard(lang),
+        parse_mode=ParseMode.MARKDOWN,
     )
     return HOUSING_PREF
 
@@ -148,11 +202,112 @@ async def handle_housing_pref(update: Update, context: ContextTypes.DEFAULT_TYPE
     lang = _get_lang(update, context)
     needs_housing = query.data == 'housing_yes'
     context.user_data['needs_housing'] = needs_housing
-
     db.update_participant(update.effective_chat.id, {'needs_housing': needs_housing})
 
-    label = t(lang, 'btn_housing_yes') if needs_housing else t(lang, 'btn_housing_no')
-    await query.edit_message_text(t(lang, 'housing_prompt') + f" {label}")
+    if needs_housing:
+        await query.edit_message_text(
+            t(lang, 'housing_pref_with_price',
+              price_housing=PRICE_WITH_HOUSING,
+              price_no_housing=PRICE_WITHOUT_HOUSING)
+            + f"\n\n✅ {t(lang, 'btn_housing_yes')}",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        # Show the house list inline
+        participant = db.get_participant(update.effective_chat.id)
+        gender = context.user_data.get('gender') or participant.get('gender', 'M')
+        houses = db.get_houses_for_gender(gender)
+        if not houses:
+            await query.message.reply_text(
+                t(lang, 'no_houses_available'),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            # No houses yet — skip to phone; housing can be picked from menu later
+            await query.message.reply_text(
+                t(lang, 'share_phone'),
+                reply_markup=_phone_keyboard(lang),
+            )
+            return PHONE
+        buttons = [
+            [InlineKeyboardButton(
+                utils.format_house_button(h, db.get_house_occupancy(h['id']), lang),
+                callback_data=f"reg_house_{h['id']}"
+            )]
+            for h in houses
+        ]
+        await query.message.reply_text(
+            t(lang, 'housing_list_header'),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        return HOUSE_SELECT
+    else:
+        await query.edit_message_text(
+            t(lang, 'housing_pref_with_price',
+              price_housing=PRICE_WITH_HOUSING,
+              price_no_housing=PRICE_WITHOUT_HOUSING)
+            + f"\n\n✅ {t(lang, 'btn_housing_no')}",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await query.message.reply_text(
+            t(lang, 'share_phone'),
+            reply_markup=_phone_keyboard(lang),
+        )
+        return PHONE
+
+
+async def handle_house_select_reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """House selection during registration — creates a tentative reservation."""
+    query = update.callback_query
+    await query.answer()
+    chat_id = update.effective_chat.id
+    lang = _get_lang(update, context)
+
+    house_id = query.data.replace('reg_house_', '')
+    house = db.get_house_by_id(house_id)
+    if not house:
+        await query.edit_message_text(t(lang, 'error_generic'))
+        return HOUSE_SELECT
+
+    taken = db.get_house_occupancy(house_id)
+    if taken >= house['capacity']:
+        # House filled up while user was looking — re-render the list
+        participant = db.get_participant(chat_id)
+        gender = context.user_data.get('gender') or participant.get('gender', 'M')
+        houses = db.get_houses_for_gender(gender)
+        if not houses:
+            await query.edit_message_text(
+                t(lang, 'no_houses_available'),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            await query.message.reply_text(
+                t(lang, 'share_phone'),
+                reply_markup=_phone_keyboard(lang),
+            )
+            return PHONE
+        buttons = [
+            [InlineKeyboardButton(
+                utils.format_house_button(h, db.get_house_occupancy(h['id']), lang),
+                callback_data=f"reg_house_{h['id']}"
+            )]
+            for h in houses
+        ]
+        await query.edit_message_text(
+            t(lang, 'house_full_msg') + '\n\n' + t(lang, 'housing_list_header'),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return HOUSE_SELECT
+
+    participant = db.get_participant(chat_id)
+    if not participant:
+        raise RuntimeError(f"handle_house_select_reg: participant not found for chat_id={chat_id}")
+    # Release any prior tentative reservation (re-entry case)
+    db.release_tentative_reservation(participant['id'])
+    db.create_tentative_reservation(house_id, participant['id'])
+
+    await query.edit_message_text(
+        t(lang, 'house_selected_tentative', name=house['name']),
+        parse_mode=ParseMode.MARKDOWN,
+    )
     await query.message.reply_text(
         t(lang, 'share_phone'),
         reply_markup=_phone_keyboard(lang),
@@ -170,12 +325,25 @@ async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     phone = update.message.contact.phone_number
     db.update_participant(update.effective_chat.id, {'phone': phone, 'status': 'pending_payment'})
 
+    needs_housing = context.user_data.get('needs_housing')
+    if needs_housing is None:
+        participant = db.get_participant(update.effective_chat.id)
+        needs_housing = participant.get('needs_housing', False)
+    amount = PRICE_WITH_HOUSING if needs_housing else PRICE_WITHOUT_HOUSING
+
     await update.message.reply_text(
-        t(lang, 'payment_instructions', payment_link=PAYMENT_LINK),
+        t(lang, 'payment_instructions', payment_link=PAYMENT_LINK, amount=amount),
         reply_markup=ReplyKeyboardRemove(),
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode=ParseMode.MARKDOWN,
     )
-    await update.message.reply_text(t(lang, 'upload_receipt'), parse_mode=ParseMode.MARKDOWN)
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(t(lang, 'btn_have_question'), callback_data='pre_approval_question')
+    ]])
+    await update.message.reply_text(
+        t(lang, 'upload_receipt'),
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN,
+    )
     return RECEIPT
 
 
@@ -196,38 +364,82 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not participant:
         raise RuntimeError(f"handle_receipt: participant not found for chat_id={chat_id}")
     db.save_receipt(participant['id'], file_id)
-    db.update_participant(chat_id, {'status': 'pending_approval'})
 
     await update.message.reply_text(t(lang, 'receipt_submitted'))
 
-    # Notify admin group/owner with receipt photo + inline buttons
     notify_chat = GROUP_CHAT_ID or OWNER_ID
-    name          = participant.get('full_name', 'Unknown')
-    age           = participant.get('age', '?')
-    gender        = 'M' if participant.get('gender') == 'M' else 'F'
-    phone         = participant.get('phone', '—')
-    username      = participant.get('username', '')
-    uname_str     = f"@{username}" if username else f"ID: {chat_id}"
-    housing_raw   = participant.get('needs_housing')
-    housing_str   = '🏠 Needs housing' if housing_raw else '🏡 Has own housing'
-    caption = (
-        f"📥 *New registration pending review*\n\n"
-        f"👤 *{name}* | {age}y | {gender}\n"
-        f"📱 {uname_str} | ☎️ {phone}\n"
-        f"{housing_str}\n"
-        f"🆔 `{chat_id}`"
-    )
+    name        = participant.get('full_name', 'Unknown')
+    age         = participant.get('age', '?')
+    gender      = 'M' if participant.get('gender') == 'M' else 'F'
+    phone_val   = participant.get('phone', '—')
+    username    = participant.get('username', '')
+    housing_raw = participant.get('needs_housing')
+    housing_str = '🏠 Needs housing' if housing_raw else '🏡 Has own housing'
+
+    # Clickable contact: @username deep-link, or phone + tg://user fallback
+    if username:
+        contact_str = f"[@{username}](https://t.me/{username})"
+    else:
+        contact_str = f"☎️ {phone_val} · [Open chat](tg://user?id={chat_id})"
+
+    is_resubmit = bool(participant.get('notify_chat_id'))
+
+    if is_resubmit:
+        caption = (
+            f"🔄 *Re-submission* — {name}\n"
+            f"Previous submission already reviewed\n\n"
+            f"👤 *{name}* | {age}y | {gender}\n"
+            f"{contact_str}\n"
+            f"{housing_str}\n"
+            f"🆔 `{chat_id}`"
+        )
+    else:
+        caption = (
+            f"📥 *New registration pending review*\n\n"
+            f"👤 *{name}* | {age}y | {gender}\n"
+            f"{contact_str}\n"
+            f"{housing_str}\n"
+            f"🆔 `{chat_id}`"
+        )
+
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Approve", callback_data=f"admin_approve_{chat_id}"),
+        InlineKeyboardButton("⏸ On Hold",  callback_data=f"admin_hold_{chat_id}"),
         InlineKeyboardButton("❌ Deny",    callback_data=f"admin_deny_{chat_id}"),
     ]])
-    await context.bot.send_photo(
-        notify_chat,
-        file_id,
-        caption=caption,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=keyboard,
-    )
+
+    # Re-submissions reply to the original thread
+    reply_to = participant.get('notify_msg_id') if is_resubmit else None
+    notify_chat_id = participant.get('notify_chat_id') or notify_chat
+
+    try:
+        result = await context.bot.send_photo(
+            notify_chat_id,
+            file_id,
+            caption=caption,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard,
+            reply_to_message_id=reply_to,
+        )
+    except Exception:
+        # Original message may have been deleted — send without threading
+        result = await context.bot.send_photo(
+            notify_chat_id,
+            file_id,
+            caption=caption,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard,
+        )
+
+    # Store notification coordinates so re-submissions can thread correctly
+    if not is_resubmit:
+        db.update_participant(chat_id, {
+            'notify_chat_id': notify_chat_id,
+            'notify_msg_id':  result.message_id,
+        })
+
+    # Update status to pending_approval
+    db.update_participant(chat_id, {'status': 'pending_approval'})
 
     return ConversationHandler.END
 
@@ -264,6 +476,23 @@ async def _show_main_menu(update: Update, lang: str):
     )
 
 
+async def _send_main_menu_to(bot, chat_id: int, lang: str) -> None:
+    """Send the main menu as a new message. Used by admin approval (no Update object)."""
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(t(lang, 'btn_housing'), callback_data='menu_housing')],
+        [InlineKeyboardButton(t(lang, 'btn_schedule'), callback_data='menu_schedule'),
+         InlineKeyboardButton(t(lang, 'btn_venue'), callback_data='menu_venue')],
+        [InlineKeyboardButton(t(lang, 'btn_qa'), callback_data='menu_qa')],
+        [InlineKeyboardButton(t(lang, 'btn_coordinator'), callback_data='menu_coordinator')],
+    ])
+    await bot.send_message(
+        chat_id,
+        t(lang, 'main_menu'),
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show main menu to approved participants."""
     chat_id = update.effective_chat.id
@@ -288,8 +517,10 @@ def build_registration_handler() -> ConversationHandler:
                            MessageHandler(filters.TEXT & ~filters.COMMAND, _prompt_use_buttons)],
             HOUSING_PREF: [CallbackQueryHandler(handle_housing_pref, pattern='^housing_'),
                            MessageHandler(filters.TEXT & ~filters.COMMAND, _prompt_use_buttons)],
+            HOUSE_SELECT: [CallbackQueryHandler(handle_house_select_reg, pattern='^reg_house_[0-9a-f-]+$'),
+                           MessageHandler(filters.TEXT & ~filters.COMMAND, _prompt_use_buttons)],
             PHONE:        [MessageHandler(filters.CONTACT, handle_phone)],
-            PAYMENT_STEP: [],  # user just reads the message and sends receipt
+            PAYMENT_STEP: [],
             RECEIPT:      [MessageHandler(filters.PHOTO | filters.Document.ALL, handle_receipt)],
         },
         fallbacks=[CommandHandler('start', start)],

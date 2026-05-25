@@ -36,6 +36,7 @@ S = {
         'btn_share_phone':      '📲 Share Phone Number',
         'payment_instructions': (
             f'💳 *Payment*\n\n'
+            f'Amount due: *{{amount}}*\n\n'
             f'Please complete your registration payment at the link below:\n\n'
             f'{{payment_link}}\n\n'
             f'Once you\'ve paid, come back and send your *payment receipt* (photo or screenshot).'
@@ -51,6 +52,33 @@ S = {
         ),
         'housing_on_approval':  '🏠 *Choose your house*\n\nPlease select a house below. You don\'t have to decide right now, but please choose by *January 10*.\n\nYou can always access this from the Housing menu.',
         'denied_notification':  '❌ *Registration Update*\n\nYour registration was not approved.\n\n*Reason:* {reason}\n\nPlease contact the organizers if you have questions.',
+        'welcome_message':      (
+            f'👋 *Welcome to {CONF_NAME}!*\n\n'
+            'We\'re happy you\'re here. To join the conference, please complete a short '
+            'registration form and send us your payment receipt.\n\n'
+            '*Registration fee:*\n'
+            '🏠 With housing — {price_housing}\n'
+            '🚗 Without housing (own arrangement) — {price_no_housing}\n\n'
+            'After your receipt is reviewed and confirmed by our team, you\'ll get access '
+            'to the schedule, venue info, and everything else you need.\n\n'
+            'Let\'s get started! 👇'
+        ),
+        'housing_pref_with_price': (
+            '🏡 Do you need local housing for the conference?\n\n'
+            '🏠 With housing — {price_housing}\n'
+            '🚗 Without housing (own arrangement) — {price_no_housing}'
+        ),
+        'house_selected_tentative': '🏠 Spot held at *{name}*. You can change this from the Housing menu once you\'re approved.',
+        'on_hold_notification': (
+            '⏸ *Your registration is on hold.*\n\n'
+            '{reason}\n\n'
+            'Please re-upload your payment receipt when ready.'
+        ),
+        'on_hold_resubmit': (
+            '⏸ Your registration was put on hold.\n\n'
+            '*Reason:* {reason}\n\n'
+            'Please upload a new payment receipt to continue.'
+        ),
 
         # ── Housing ──────────────────────────────────────────────────────────
         'housing_paused':       '⏸ Housing reservations are not available right now.',
@@ -87,6 +115,15 @@ S = {
         'messages_paused':      '⏸ Coordinator messaging is paused right now.',
         'coordinator_prompt':   '📨 Type your message to the coordinators:',
         'coordinator_submitted':'✅ Your message has been sent to the coordinators!',
+        'btn_have_question':        '❓ Have a Question?',
+        'question_prompt_pre_approval': (
+            '❓ Type your question and we\'ll pass it to the organizers.\n\n'
+            '_To submit your payment, send a photo or screenshot above — not here._'
+        ),
+        'question_sent_pre_approval': (
+            '✅ Your question has been sent! The organizers will reach out to you directly.\n\n'
+            'To submit your payment, send a photo or screenshot above 👆'
+        ),
 
         # ── Admin ─────────────────────────────────────────────────────────────
         'admin_no_pending':     '✅ No registrations pending review.',
@@ -123,6 +160,8 @@ S = {
             '❌ Denied: {denied}\n'
             '🏠 Housing reserved: {housed}'
         ),
+        'admin_hold_prompt':    'Type a message for *{name}* — explain what needs fixing:',
+        'admin_held':           '⏸ {name} has been put on hold and notified.',
     },
 
     'uk': {
@@ -159,7 +198,8 @@ S = {
         'btn_share_phone':      '📲 Поділитися номером телефону',
         'payment_instructions': (
             f'💳 *Оплата*\n\n'
-            f'Будь ласка, здійсніть оплату реєстраційного внеску за посиланням нижче:\n\n'
+            f'Сума до сплати: *{{amount}}*\n\n'
+            f'Будь ласка, здійсніть оплату за посиланням нижче:\n\n'
             f'{{payment_link}}\n\n'
             f'Після оплати поверніться сюди та надішліть *квитанцію про оплату* (фото або скриншот).'
         ),
@@ -174,6 +214,33 @@ S = {
         ),
         'housing_on_approval':  '🏠 *Оберіть будинок*\n\nБудь ласка, оберіть будинок нижче. Ви не зобов\'язані вирішувати прямо зараз, але будь ласка, зробіть вибір до *10 січня*.\n\nВи завжди можете зробити це через меню Житло.',
         'denied_notification':  '❌ *Оновлення реєстрації*\n\nВашу реєстрацію не схвалено.\n\n*Причина:* {reason}\n\nЗверніться до організаторів, якщо у вас є запитання.',
+        'welcome_message':      (
+            f'👋 *Ласкаво просимо до {CONF_NAME}!*\n\n'
+            'Ми раді, що ви тут. Щоб приєднатися до конференції, будь ласка, заповніть коротку '
+            'форму реєстрації та надішліть квитанцію про оплату.\n\n'
+            '*Реєстраційний внесок:*\n'
+            '🏠 З проживанням — {price_housing}\n'
+            '🚗 Без проживання (власні умови) — {price_no_housing}\n\n'
+            'Після того як наша команда перевірить та підтвердить вашу квитанцію, '
+            'ви отримаєте доступ до розкладу, інформації про місце та всього іншого.\n\n'
+            'Починаємо! 👇'
+        ),
+        'housing_pref_with_price': (
+            '🏡 Чи потребуєте ви місцевого проживання під час конференції?\n\n'
+            '🏠 З проживанням — {price_housing}\n'
+            '🚗 Без проживання (власні умови) — {price_no_housing}'
+        ),
+        'house_selected_tentative': '🏠 Місце заброньоване в *{name}*. Ви можете змінити це через меню Житло після схвалення.',
+        'on_hold_notification': (
+            '⏸ *Вашу реєстрацію призупинено.*\n\n'
+            '{reason}\n\n'
+            'Будь ласка, повторно завантажте квитанцію про оплату, коли будете готові.'
+        ),
+        'on_hold_resubmit': (
+            '⏸ Вашу реєстрацію було призупинено.\n\n'
+            '*Причина:* {reason}\n\n'
+            'Будь ласка, завантажте нову квитанцію про оплату для продовження.'
+        ),
 
         # ── Housing ──────────────────────────────────────────────────────────
         'housing_paused':       '⏸ Бронювання житла наразі недоступне.',
@@ -210,6 +277,15 @@ S = {
         'messages_paused':      '⏸ Зв\'язок з координаторами наразі призупинено.',
         'coordinator_prompt':   '📨 Введіть повідомлення для координаторів:',
         'coordinator_submitted':'✅ Ваше повідомлення надіслано координаторам!',
+        'btn_have_question':        '❓ Маєте питання?',
+        'question_prompt_pre_approval': (
+            '❓ Введіть ваше питання і ми передамо його організаторам.\n\n'
+            '_Щоб надіслати оплату, надішліть фото або скриншот вище — не тут._'
+        ),
+        'question_sent_pre_approval': (
+            '✅ Ваше питання надіслано! Організатори зв\'яжуться з вами напряму.\n\n'
+            'Щоб надіслати оплату, надішліть фото або скриншот вище 👆'
+        ),
 
         # ── Admin ─────────────────────────────────────────────────────────────
         'admin_no_pending':     '✅ Немає реєстрацій на розгляді.',
@@ -246,6 +322,8 @@ S = {
             '❌ Відхилено: {denied}\n'
             '🏠 Забронювали житло: {housed}'
         ),
+        'admin_hold_prompt':    'Напишіть повідомлення для *{name}* — поясніть що потрібно виправити:',
+        'admin_held':           '⏸ {name} призупинено та повідомлено.',
     }
 }
 
