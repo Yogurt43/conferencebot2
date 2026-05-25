@@ -133,15 +133,15 @@ Current format uses `@username` or `ID: {chat_id}`. Updated:
 ## 5. "Message Organizers" During Receipt Step
 
 ### Where it appears
-- On the `upload_receipt` message — as an inline button: **💬 Message the Organizers**
+- On the `upload_receipt` message — as an inline button: **❓ Have a Question?**
 - On the on-hold message sent to the user — same button
 
 ### Flow
-1. User clicks "💬 Message the Organizers"
-2. A **new message** is sent (does not replace or edit the receipt prompt): *"📨 Type your message and we'll pass it to the organizers. After sending, remember to upload your receipt ☝️"*
+1. User clicks "❓ Have a Question?"
+2. A **new message** is sent (does not replace or edit the receipt prompt): *"❓ Type your question and we'll pass it to the organizers.\n\nTo submit your payment, send a photo or screenshot above — not here."*
 3. Chat ID added to `_awaiting_msg` (existing set in `info.py`)
 4. User types message → caught by `handle_text_input` (falls through RECEIPT ConversationHandler state since only photo/doc are handled there)
-5. Bot confirms: *"✅ Your message has been sent! They'll reach out directly. Don't forget your receipt when ready 👆"*
+5. Bot confirms: *"✅ Your question has been sent! The organizers will reach out to you directly. To submit your payment, send a photo or screenshot above 👆"*
 6. Organizer channel receives:
 
 ```
@@ -171,7 +171,7 @@ The `handle_coordinator_start` callback currently calls `query.edit_message_text
 ---
 
 ## Files affected
-- `strings.py` — new keys: `welcome_message`, `housing_pref_with_price`, `house_selected_tentative`, `payment_instructions` (add `{amount}`), `on_hold_notification`, `on_hold_resubmit`, `msg_org_pre_approval`, `msg_org_pre_approval_sent`, new UK translations for all
+- `strings.py` — new keys: `welcome_message`, `housing_pref_with_price`, `house_selected_tentative`, `payment_instructions` (add `{amount}`), `on_hold_notification`, `on_hold_resubmit`, `btn_have_question`, `question_prompt_pre_approval`, `question_sent_pre_approval`, new UK translations for all
 - `config.py` — add `PRICE_WITH_HOUSING = 175` and `PRICE_WITHOUT_HOUSING = 100`
 - `handlers/registration.py` — welcome message in `start()`, new `HOUSE_SELECT` state and handler, update `handle_housing_pref`, `handle_phone` (amount), re-entry for `on_hold`, `upload_receipt` button, new `_send_main_menu_to(bot, chat_id, lang)` helper (async, takes bot + chat_id instead of Update so it can be called from admin.py)
 - `handlers/admin.py` — three-button notification, `cb_admin_hold_start`, `_hold_pending`/`_hold_msg_info` state, updated `handle_setting_input`, release reservation on denial, confirm reservation on approval, send main menu on approval
