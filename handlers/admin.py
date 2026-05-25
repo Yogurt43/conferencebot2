@@ -15,10 +15,6 @@ _deny_msg_info: dict[int, tuple] = {}  # admin_user_id → (chat_id, message_id)
 _setting_field: dict[int, str]   = {}  # admin_user_id → field name
 # Nuke confirmation steps
 _nuke_step: dict[int, int] = {}      # admin_chat_id → step (1 or 2)
-# Confirmremove pending
-_remove_pending: dict[int, str] = {} # admin_chat_id → house_name
-# Addhouse gender-picker pending
-_addhouse_pending: dict[int, tuple] = {}  # admin_user_id → (name, capacity)
 
 
 def _require_admin(func):
@@ -228,95 +224,6 @@ async def cmd_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─── Housing management ────────────────────────────────────────────────────────
-
-@_require_admin
-async def cmd_addhouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Usage: /addhouse <name> <capacity>
-    args = context.args
-    if len(args) < 2:
-        await update.message.reply_text("Usage: /addhouse <name> <capacity>")
-        return
-    name = args[0]
-    try:
-        capacity = int(args[1])
-    except ValueError:
-        await update.message.reply_text("Capacity must be a number.")
-        return
-
-    if db.get_house_by_name(name):
-        await update.message.reply_text(t('en', 'admin_house_exists', name=name), parse_mode=ParseMode.MARKDOWN)
-        return
-
-    _addhouse_pending[update.effective_user.id] = (name, capacity)
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("♀️ Female", callback_data='addhouse_gender_F'),
-        InlineKeyboardButton("♂️ Male",   callback_data='addhouse_gender_M'),
-    ]])
-    await update.message.reply_text(
-        f"Choose gender for *{name}* (capacity {capacity}):",
-        reply_markup=keyboard,
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-
-async def cb_addhouse_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gender selector callback for /addhouse."""
-    query = update.callback_query
-    admin_id = update.effective_user.id
-    if not utils.is_admin(admin_id):
-        await query.answer("No permission.", show_alert=True)
-        return
-    await query.answer()
-
-    pending = _addhouse_pending.pop(admin_id, None)
-    if not pending:
-        await query.edit_message_text("⚠️ No pending house addition. Use /addhouse again.")
-        return
-
-    name, capacity = pending
-    gender = query.data.split('_')[-1]  # 'M' or 'F'
-    gender_label = '♀️ Female' if gender == 'F' else '♂️ Male'
-    db.add_house(name, gender, capacity)
-    await query.edit_message_text(
-        t('en', 'admin_house_added', name=name, gender=gender_label, capacity=capacity),
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-
-@_require_admin
-async def cmd_removehouse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Usage: /removehouse <name>")
-        return
-    name = ' '.join(context.args)
-    house = db.get_house_by_name(name)
-    if not house:
-        await update.message.reply_text(t('en', 'admin_house_not_found', name=name), parse_mode=ParseMode.MARKDOWN)
-        return
-    count = db.get_house_reservation_count(house['id'])
-    if count > 0:
-        _remove_pending[update.effective_chat.id] = name
-        await update.message.reply_text(
-            t('en', 'admin_house_occupied', name=name, count=count),
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-    db.remove_house(house['id'])
-    await update.message.reply_text(t('en', 'admin_house_removed', name=name), parse_mode=ParseMode.MARKDOWN)
-
-
-@_require_admin
-async def cmd_confirmremove(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    admin_id = update.effective_chat.id
-    name = _remove_pending.pop(admin_id, None)
-    if not name:
-        await update.message.reply_text("No pending house removal.")
-        return
-    house = db.get_house_by_name(name)
-    if house:
-        db.remove_house(house['id'])
-    await update.message.reply_text(t('en', 'admin_house_removed', name=name), parse_mode=ParseMode.MARKDOWN)
-
 
 @_require_admin
 async def cmd_listhouses(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -530,8 +437,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/viewreceipt `<id>` — view a user's receipt\n"
         "/participants — list all participants\n\n"
         "🏠 *Housing*\n"
-        "/addhouse `<name>` `<capacity>` — add a house (gender via buttons)\n"
-        "/removehouse `<name>` — remove a house\n"
         "/listhouses — list all houses and occupancy\n"
         "/moveresident `<id>` `<house>` — move a user to a house\n\n"
         "📢 *Broadcast*\n"
@@ -544,9 +449,18 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/status — show bot stats\n\n"
         "👑 *Owner only*\n"
         "/addadmin `<id>` — add an admin\n"
-        "/removeuser `<id>` — delete a participant\n",
+        "/removeuser `<id>` — delete a participant\n"
+        "/testsetup — reset your own registration for testing\n",
         parse_mode='Markdown'
     )
+
+
+@_require_owner
+async def cmd_testsetup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Delete the caller's own participant record so they can re-test registration."""
+    chat_id = update.effective_chat.id
+    db.delete_participant(chat_id)
+    await update.message.reply_text("🧪 Your participant record has been deleted. Send /start to re-register.")
 
 
 @_require_owner
@@ -576,16 +490,12 @@ def get_admin_handlers() -> list:
     return [
         CallbackQueryHandler(cb_admin_approve,    pattern='^admin_approve_'),
         CallbackQueryHandler(cb_admin_deny_start, pattern='^admin_deny_'),
-        CallbackQueryHandler(cb_addhouse_gender,  pattern='^addhouse_gender_'),
         CommandHandler('help',          cmd_help),
         CommandHandler('pending',       cmd_pending),
         CommandHandler('approve',       cmd_approve),
         CommandHandler('deny',          cmd_deny),
         CommandHandler('viewreceipt',   cmd_viewreceipt),
         CommandHandler('participants',  cmd_participants),
-        CommandHandler('addhouse',      cmd_addhouse),
-        CommandHandler('removehouse',   cmd_removehouse),
-        CommandHandler('confirmremove', cmd_confirmremove),
         CommandHandler('listhouses',    cmd_listhouses),
         CommandHandler('moveresident',  cmd_moveresident),
         CommandHandler('broadcast',     cmd_broadcast),
@@ -596,6 +506,7 @@ def get_admin_handlers() -> list:
         CommandHandler('setvenue',      cmd_setvenue),
         CommandHandler('addadmin',      cmd_addadmin),
         CommandHandler('removeuser',    cmd_removeuser),
+        CommandHandler('testsetup',     cmd_testsetup),
         CommandHandler('nuke',          cmd_nuke),
         CommandHandler('nuke2',         cmd_nuke2),
         CommandHandler('nuke3',         cmd_nuke3),
