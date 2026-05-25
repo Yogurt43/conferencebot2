@@ -146,6 +146,7 @@ async def cmd_deny(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t('en', 'admin_user_not_found'))
         return
     db.update_participant(target_id, {'status': 'denied', 'denial_reason': reason})
+    db.release_tentative_reservation(participant['id'])  # release tentative house reservation
     lang = utils.get_lang(participant)
     await context.bot.send_message(
         target_id,
@@ -236,6 +237,37 @@ async def cb_admin_deny_start(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.send_message(
         query.message.chat_id,
         f"✏️ Type the denial reason for *{name}*:",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+async def cb_admin_hold_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """⏸ On Hold button — prompt admin for a reason."""
+    query = update.callback_query
+    admin_user_id = update.effective_user.id
+    if not utils.is_admin(admin_user_id):
+        await query.answer("No permission.", show_alert=True)
+        return
+    await query.answer()
+
+    target_id   = int(query.data.split('_')[-1])
+    participant = db.get_participant(target_id)
+    if not participant:
+        await query.answer("User not found.", show_alert=True)
+        return
+    if participant.get('status') == 'on_hold':
+        await query.answer("Already on hold.", show_alert=True)
+        return
+
+    _hold_pending[admin_user_id]  = target_id
+    _hold_msg_info[admin_user_id] = (query.message.chat_id, query.message.message_id)
+    db.set_setting(f'hold_pending_{admin_user_id}', str(target_id))
+    db.set_setting(f'hold_msg_{admin_user_id}', f'{query.message.chat_id}:{query.message.message_id}')
+
+    name = participant.get('full_name', str(target_id))
+    await context.bot.send_message(
+        query.message.chat_id,
+        t('en', 'admin_hold_prompt', name=name),
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -377,6 +409,52 @@ async def cmd_setvenue(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_setting_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_id = update.effective_user.id
 
+    # ── On Hold flow ──────────────────────────────────────────────────────────
+    hold_target = _hold_pending.pop(admin_id, None)
+    if hold_target is None:
+        stored = db.get_setting(f'hold_pending_{admin_id}')
+        if stored:
+            hold_target = int(stored)
+
+    if hold_target is not None:
+        reason   = update.message.text
+        msg_info = _hold_msg_info.pop(admin_id, None)
+        if msg_info is None:
+            stored_msg = db.get_setting(f'hold_msg_{admin_id}')
+            if stored_msg and ':' in stored_msg:
+                chat_part, msg_part = stored_msg.split(':', 1)
+                msg_info = (int(chat_part), int(msg_part))
+
+        db.set_setting(f'hold_pending_{admin_id}', '')
+        db.set_setting(f'hold_msg_{admin_id}', '')
+
+        participant = db.get_participant(hold_target)
+        if participant:
+            db.update_participant(hold_target, {'status': 'on_hold', 'denial_reason': reason})
+            lang = utils.get_lang(participant)
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(t(lang, 'btn_have_question'), callback_data='pre_approval_question')
+            ]])
+            await context.bot.send_message(
+                hold_target,
+                t(lang, 'on_hold_notification', reason=reason),
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            name = participant.get('full_name', str(hold_target))
+            if msg_info:
+                try:
+                    await context.bot.edit_message_caption(
+                        chat_id=msg_info[0],
+                        message_id=msg_info[1],
+                        caption=f"⏸ *On Hold* — {name}\n_{reason}_",
+                        parse_mode=ParseMode.MARKDOWN,
+                    )
+                except Exception:
+                    pass
+            await update.message.reply_text(t('en', 'admin_held', name=name))
+        return
+
     # ── Deny reason flow ─────────────────────────────────────────────────────
     target_id = _deny_pending.pop(admin_id, None)
 
@@ -404,6 +482,7 @@ async def handle_setting_input(update: Update, context: ContextTypes.DEFAULT_TYP
         participant = db.get_participant(target_id)
         if participant:
             db.update_participant(target_id, {'status': 'denied', 'denial_reason': reason})
+            db.release_tentative_reservation(participant['id'])
             lang = utils.get_lang(participant)
             await context.bot.send_message(
                 target_id,
@@ -527,6 +606,7 @@ async def cmd_nuke3(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def get_admin_handlers() -> list:
     return [
         CallbackQueryHandler(cb_admin_approve,    pattern='^admin_approve_'),
+        CallbackQueryHandler(cb_admin_hold_start, pattern='^admin_hold_'),
         CallbackQueryHandler(cb_admin_deny_start, pattern='^admin_deny_'),
         CommandHandler('help',          cmd_help),
         CommandHandler('pending',       cmd_pending),
