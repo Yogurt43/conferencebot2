@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS participants (
                   'denied'
                 )) DEFAULT 'incomplete',
   denial_reason TEXT,
+  needs_housing BOOLEAN DEFAULT NULL,
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 

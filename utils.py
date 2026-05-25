@@ -4,12 +4,12 @@ from config import ADMIN_IDS, OWNER_ID
 
 
 def validate_age(text: str) -> int | None:
-    """Return integer age if valid (1–2 digit number, 1–99), else None."""
+    """Return integer age if valid (10–99), else None."""
     raw = text.strip()
-    if not raw.isdigit() or len(raw) > 2:
+    if not raw.isdigit() or len(raw) != 2:
         return None
     age = int(raw)
-    return age if 1 <= age <= 99 else None
+    return age if 10 <= age <= 99 else None
 
 
 def format_house_button(house: dict, taken: int, lang: str = 'en') -> str:

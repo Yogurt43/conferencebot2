@@ -50,7 +50,12 @@ for handler in get_housing_handlers():
     ptb_app.add_handler(handler)
 
 for handler in get_info_handlers():
-    ptb_app.add_handler(handler)
+    # Put the free-text catcher in a lower-priority group (1) so the admin
+    # deny/setting handler (group 0) always wins for admin text in the group.
+    if isinstance(handler, MessageHandler):
+        ptb_app.add_handler(handler, group=1)
+    else:
+        ptb_app.add_handler(handler)
 
 for handler in get_admin_handlers():
     ptb_app.add_handler(handler)

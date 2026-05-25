@@ -9,7 +9,7 @@ from strings import t
 from config import PAYMENT_LINK, GROUP_CHAT_ID, OWNER_ID
 
 # Conversation states
-LANG, NAME, AGE, GENDER, PHONE, PAYMENT_STEP, RECEIPT = range(7)
+LANG, NAME, AGE, GENDER, HOUSING_PREF, PHONE, PAYMENT_STEP, RECEIPT = range(8)
 
 
 def _lang_keyboard():
@@ -23,6 +23,13 @@ def _gender_keyboard(lang: str):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t(lang, 'btn_male'), callback_data='gender_M'),
          InlineKeyboardButton(t(lang, 'btn_female'), callback_data='gender_F')]
+    ])
+
+
+def _housing_keyboard(lang: str):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(t(lang, 'btn_housing_yes'), callback_data='housing_yes'),
+         InlineKeyboardButton(t(lang, 'btn_housing_no'),  callback_data='housing_no')]
     ])
 
 
@@ -120,10 +127,28 @@ async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     db.update_participant(update.effective_chat.id, {'gender': gender})
 
-    await query.edit_message_text(t(lang, 'choose_gender') + f" ✅")
+    await query.edit_message_text(t(lang, 'choose_gender') + " ✅")
+    await query.message.reply_text(
+        t(lang, 'housing_prompt'),
+        reply_markup=_housing_keyboard(lang),
+    )
+    return HOUSING_PREF
+
+
+async def handle_housing_pref(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    lang = _get_lang(update, context)
+    needs_housing = query.data == 'housing_yes'
+    context.user_data['needs_housing'] = needs_housing
+
+    db.update_participant(update.effective_chat.id, {'needs_housing': needs_housing})
+
+    label = t(lang, 'btn_housing_yes') if needs_housing else t(lang, 'btn_housing_no')
+    await query.edit_message_text(t(lang, 'housing_prompt') + f" {label} ✅")
     await query.message.reply_text(
         t(lang, 'share_phone'),
-        reply_markup=_phone_keyboard(lang)
+        reply_markup=_phone_keyboard(lang),
     )
     return PHONE
 
@@ -170,16 +195,19 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Notify admin group/owner with receipt photo + inline buttons
     notify_chat = GROUP_CHAT_ID or OWNER_ID
-    name     = participant.get('full_name', 'Unknown')
-    age      = participant.get('age', '?')
-    gender   = 'M' if participant.get('gender') == 'M' else 'F'
-    phone    = participant.get('phone', '—')
-    username = participant.get('username', '')
-    uname_str = f"@{username}" if username else f"ID: {chat_id}"
+    name          = participant.get('full_name', 'Unknown')
+    age           = participant.get('age', '?')
+    gender        = 'M' if participant.get('gender') == 'M' else 'F'
+    phone         = participant.get('phone', '—')
+    username      = participant.get('username', '')
+    uname_str     = f"@{username}" if username else f"ID: {chat_id}"
+    housing_raw   = participant.get('needs_housing')
+    housing_str   = '🏠 Needs housing' if housing_raw is True else ('🏡 Has own housing' if housing_raw is False else '❓ Housing: not answered')
     caption = (
         f"📥 *New registration pending review*\n\n"
         f"👤 *{name}* | {age}y | {gender}\n"
         f"📱 {uname_str} | ☎️ {phone}\n"
+        f"{housing_str}\n"
         f"🆔 `{chat_id}`"
     )
     keyboard = InlineKeyboardMarkup([[
@@ -242,6 +270,7 @@ def build_registration_handler() -> ConversationHandler:
             NAME:         [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_name)],
             AGE:          [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_age)],
             GENDER:       [CallbackQueryHandler(handle_gender, pattern='^gender_')],
+            HOUSING_PREF: [CallbackQueryHandler(handle_housing_pref, pattern='^housing_')],
             PHONE:        [MessageHandler(filters.CONTACT, handle_phone)],
             PAYMENT_STEP: [],  # user just reads the message and sends receipt
             RECEIPT:      [MessageHandler(filters.PHOTO | filters.Document.ALL, handle_receipt)],
