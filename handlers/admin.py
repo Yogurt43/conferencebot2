@@ -446,24 +446,54 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def _pause_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🏠 Housing",   callback_data='pause_housing'),
+        InlineKeyboardButton("❓ Q&A",       callback_data='pause_qa'),
+        InlineKeyboardButton("📨 Messages",  callback_data='pause_messages'),
+    ]])
+
+
+def _resume_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🏠 Housing",   callback_data='resume_housing'),
+        InlineKeyboardButton("❓ Q&A",       callback_data='resume_qa'),
+        InlineKeyboardButton("📨 Messages",  callback_data='resume_messages'),
+    ]])
+
+
 @_require_admin
 async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Usage: /pause <housing|qa|messages>")
-        return
-    feature = context.args[0]
-    db.set_setting(f'{feature}_paused', 'true')
-    await update.message.reply_text(t('en', 'admin_feature_paused', feature=feature))
+    await update.message.reply_text("⏸ Select a feature to pause:", reply_markup=_pause_keyboard())
 
 
 @_require_admin
 async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Usage: /resume <housing|qa|messages>")
+    await update.message.reply_text("▶️ Select a feature to resume:", reply_markup=_resume_keyboard())
+
+
+async def cb_pause_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not utils.is_admin(update.effective_user.id):
+        await query.answer("No permission.", show_alert=True)
         return
-    feature = context.args[0]
+    await query.answer()
+    feature = query.data.replace('pause_', '')
+    db.set_setting(f'{feature}_paused', 'true')
+    labels = {'housing': '🏠 Housing', 'qa': '❓ Q&A', 'messages': '📨 Messages'}
+    await query.edit_message_text(f"⏸ *{labels.get(feature, feature)}* is now paused.", parse_mode=ParseMode.MARKDOWN)
+
+
+async def cb_resume_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not utils.is_admin(update.effective_user.id):
+        await query.answer("No permission.", show_alert=True)
+        return
+    await query.answer()
+    feature = query.data.replace('resume_', '')
     db.set_setting(f'{feature}_paused', 'false')
-    await update.message.reply_text(t('en', 'admin_feature_resumed', feature=feature))
+    labels = {'housing': '🏠 Housing', 'qa': '❓ Q&A', 'messages': '📨 Messages'}
+    await query.edit_message_text(f"▶️ *{labels.get(feature, feature)}* is now active.", parse_mode=ParseMode.MARKDOWN)
 
 
 @_require_admin
@@ -471,11 +501,6 @@ async def cmd_setschedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _setting_field[update.effective_user.id] = 'schedule'
     await update.message.reply_text(t('en', 'admin_set_prompt', field='schedule'))
 
-
-@_require_admin
-async def cmd_setvenue(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    _setting_field[update.effective_user.id] = 'venue'
-    await update.message.reply_text(t('en', 'admin_set_prompt', field='venue'))
 
 
 async def handle_setting_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -618,9 +643,6 @@ async def handle_setting_input(update: Update, context: ContextTypes.DEFAULT_TYP
     if field == 'schedule':
         db.set_setting('schedule_text', text)
         await update.message.reply_text(t('en', 'admin_schedule_set'))
-    elif field == 'venue':
-        db.set_setting('venue_text', text)
-        await update.message.reply_text(t('en', 'admin_venue_set'))
 
 
 @_require_owner
@@ -665,9 +687,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/broadcast `<message>` — send message to all approved users\n\n"
         "⚙️ *Settings*\n"
         "/setschedule — set schedule text\n"
-        "/setvenue — set venue text\n"
-        "/pause `<housing|qa|messages>` — pause a feature\n"
-        "/resume `<housing|qa|messages>` — resume a feature\n"
+        "/pause — pause a feature\n"
+        "/resume — resume a feature\n"
         "/status — show bot stats"
     )
     if is_owner:
@@ -716,6 +737,8 @@ def get_admin_handlers() -> list:
         CallbackQueryHandler(cb_admin_approve,    pattern='^admin_approve_'),
         CallbackQueryHandler(cb_admin_hold_start, pattern='^admin_hold_'),
         CallbackQueryHandler(cb_admin_deny_start, pattern='^admin_deny_'),
+        CallbackQueryHandler(cb_pause_feature,    pattern='^pause_'),
+        CallbackQueryHandler(cb_resume_feature,   pattern='^resume_'),
         CommandHandler('help',          cmd_help),
         CommandHandler('onhold',        cmd_onhold),
         CommandHandler('pending',       cmd_pending),
@@ -730,7 +753,6 @@ def get_admin_handlers() -> list:
         CommandHandler('pause',         cmd_pause),
         CommandHandler('resume',        cmd_resume),
         CommandHandler('setschedule',   cmd_setschedule),
-        CommandHandler('setvenue',      cmd_setvenue),
         CommandHandler('addadmin',      cmd_addadmin),
         CommandHandler('removeuser',    cmd_removeuser),
         CommandHandler('testsetup',     cmd_testsetup),
