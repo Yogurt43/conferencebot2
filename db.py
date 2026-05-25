@@ -13,11 +13,11 @@ def get_participant(chat_id: int) -> dict | None:
 
 def upsert_participant(data: dict) -> dict:
     res = sb.table('participants').upsert(data, on_conflict='chat_id').execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def update_participant(chat_id: int, data: dict) -> dict:
     res = sb.table('participants').update(data).eq('chat_id', chat_id).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def get_participants_by_status(status: str) -> list[dict]:
     res = sb.table('participants').select('*').eq('status', status).execute()
@@ -53,7 +53,7 @@ def save_receipt(participant_id: str, file_id: str) -> dict:
         'participant_id': participant_id,
         'file_id': file_id
     }).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def get_latest_receipt(participant_id: str) -> dict | None:
     res = (sb.table('receipts')
@@ -88,7 +88,7 @@ def add_house(name: str, gender: str, capacity: int, address: str = '', notes: s
         'name': name, 'gender': gender, 'capacity': capacity,
         'address': address, 'notes': notes
     }).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def remove_house(house_id: str) -> None:
     sb.table('houses').delete().eq('id', house_id).execute()
@@ -115,7 +115,7 @@ def create_reservation(house_id: str, participant_id: str) -> dict:
         'house_id': house_id,
         'participant_id': participant_id
     }).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def delete_reservation(participant_id: str) -> None:
     sb.table('house_reservations').delete().eq('participant_id', participant_id).execute()
@@ -125,7 +125,7 @@ def move_reservation(participant_id: str, new_house_id: str) -> dict:
              .update({'house_id': new_house_id})
              .eq('participant_id', participant_id)
              .execute())
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 def count_housed_participants() -> int:
     res = sb.table('house_reservations').select('id').execute()
@@ -142,7 +142,7 @@ def save_question(participant_id: str, text: str) -> dict:
     res = sb.table('questions').insert({
         'participant_id': participant_id, 'text': text
     }).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 
 # ─── Coordinator messages ──────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ def save_message(participant_id: str, text: str) -> dict:
     res = sb.table('messages').insert({
         'participant_id': participant_id, 'text': text
     }).execute()
-    return res.data[0]
+    return res.data[0] if res.data else {}
 
 
 # ─── Bot settings ─────────────────────────────────────────────────────────────

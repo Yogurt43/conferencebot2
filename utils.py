@@ -12,13 +12,14 @@ def validate_age(text: str) -> int | None:
         return None
 
 
-def format_house_button(house: dict, taken: int) -> str:
+def format_house_button(house: dict, taken: int, lang: str = 'en') -> str:
     """Format a house's inline button label."""
+    from strings import t
     name = house['name']
     cap = house['capacity']
     if taken >= cap:
-        return f"{name} — FULL / ЗАЙНЯТИЙ"
-    return f"{name} — {taken}/{cap} spots taken"
+        return t(lang, 'house_full_label', name=name)
+    return t(lang, 'house_spots_label', name=name, taken=taken, capacity=cap)
 
 
 def get_lang(participant: dict | None) -> str:
