@@ -148,11 +148,14 @@ Current format uses `@username` or `ID: {chat_id}`. Updated:
 📨 Message from pending registrant
 
 👤 {name} · status: ⏳ Pending payment
+💳 Amount due: 175 (with housing)           ← or 100 (no housing)
 [@username](https://t.me/username)          ← if username exists
 ☎️ {phone} · [Open chat](tg://user?id=...)  ← if no username
 
 "{message text}"
 ```
+
+`needs_housing` is already on the participant record; the handler looks it up and picks `PRICE_WITH_HOUSING` or `PRICE_WITHOUT_HOUSING` from `config.py` to format the amount line.
 
 ### Technical note
 The `handle_coordinator_start` callback currently calls `query.edit_message_text`. A new variant is needed for the pre-approval context that sends a **new message** instead of editing. The coordinator channel notification is enhanced with name, status, and contact link.
