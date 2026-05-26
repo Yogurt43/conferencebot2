@@ -11,6 +11,12 @@ def get_participant(chat_id: int) -> dict | None:
     res = sb.table('participants').select('*').eq('chat_id', chat_id).execute()
     return res.data[0] if res.data else None
 
+def get_participant_by_username(username: str) -> dict | None:
+    """Look up a participant by Telegram username (with or without leading @)."""
+    username = username.lstrip('@')
+    res = sb.table('participants').select('*').ilike('username', username).execute()
+    return res.data[0] if res.data else None
+
 def upsert_participant(data: dict) -> dict:
     res = sb.table('participants').upsert(data, on_conflict='chat_id').execute()
     return res.data[0] if res.data else {}

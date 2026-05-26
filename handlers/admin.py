@@ -71,6 +71,24 @@ async def _send_housing_prompt_if_needed(bot, participant: dict, lang: str) -> N
     )
 
 
+def _resolve_participant(arg: str) -> tuple[dict | None, str]:
+    """Resolve a command argument to a participant.
+
+    Accepts:
+      - a numeric chat_id  (e.g. "123456789")
+      - a @username        (e.g. "@mbrovcheenko" or "mbrovcheenko")
+
+    Returns (participant_dict_or_None, error_message_or_empty).
+    """
+    if arg.lstrip('@').isdigit() and not arg.startswith('@'):
+        participant = db.get_participant(int(arg))
+    else:
+        participant = db.get_participant_by_username(arg)
+    if not participant:
+        return None, t('en', 'admin_user_not_found')
+    return participant, ''
+
+
 # ─── Registration review ───────────────────────────────────────────────────────
 
 @_require_admin
@@ -179,17 +197,13 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @_require_admin
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Usage: /approve <chat_id>")
+        await update.message.reply_text("Usage: /approve <@username or chat_id>")
         return
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Usage: /approve <chat_id>")
+    participant, err = _resolve_participant(context.args[0])
+    if err:
+        await update.message.reply_text(err)
         return
-    participant = db.get_participant(target_id)
-    if not participant:
-        await update.message.reply_text(t('en', 'admin_user_not_found'))
-        return
+    target_id = participant['chat_id']
     db.update_participant(target_id, {'status': 'approved'})
     db.confirm_reservation(participant['id'])
     lang = utils.get_lang(participant)
@@ -204,18 +218,14 @@ async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @_require_admin
 async def cmd_deny(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
-        await update.message.reply_text("Usage: /deny <chat_id> <reason>")
+        await update.message.reply_text("Usage: /deny <@username or chat_id> <reason>")
         return
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Usage: /deny <chat_id> <reason>")
+    participant, err = _resolve_participant(context.args[0])
+    if err:
+        await update.message.reply_text(err)
         return
+    target_id = participant['chat_id']
     reason = ' '.join(context.args[1:])
-    participant = db.get_participant(target_id)
-    if not participant:
-        await update.message.reply_text(t('en', 'admin_user_not_found'))
-        return
     db.update_participant(target_id, {'status': 'denied', 'denial_reason': reason})
     db.release_tentative_reservation(participant['id'])  # release tentative house reservation
     lang = utils.get_lang(participant)
@@ -233,17 +243,13 @@ async def cmd_deny(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @_require_admin
 async def cmd_viewreceipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Usage: /viewreceipt <chat_id>")
+        await update.message.reply_text("Usage: /viewreceipt <@username or chat_id>")
         return
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Usage: /viewreceipt <chat_id>")
+    participant, err = _resolve_participant(context.args[0])
+    if err:
+        await update.message.reply_text(err)
         return
-    participant = db.get_participant(target_id)
-    if not participant:
-        await update.message.reply_text(t('en', 'admin_user_not_found'))
-        return
+    target_id = participant['chat_id']
     receipt = db.get_latest_receipt(participant['id'])
     if not receipt:
         await update.message.reply_text("No receipt found for this user.")
@@ -394,21 +400,16 @@ async def cmd_listhouses(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @_require_admin
 async def cmd_moveresident(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Usage: /moveresident <chat_id> <house_name>
+    # Usage: /moveresident <@username or chat_id> <house_name>
     if len(context.args) < 2:
-        await update.message.reply_text("Usage: /moveresident <chat_id> <house_name>")
+        await update.message.reply_text("Usage: /moveresident <@username or chat_id> <house_name>")
         return
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Usage: /moveresident <chat_id> <house_name>")
+    participant, err = _resolve_participant(context.args[0])
+    if err:
+        await update.message.reply_text(err)
         return
+    target_id = participant['chat_id']
     house_name = ' '.join(context.args[1:])
-
-    participant = db.get_participant(target_id)
-    if not participant:
-        await update.message.reply_text(t('en', 'admin_user_not_found'))
-        return
 
     house = db.get_house_by_name(house_name)
     if not house:
