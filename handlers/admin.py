@@ -682,14 +682,13 @@ async def cmd_addadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @_require_owner
 async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Usage: /removeuser <chat_id>")
+        await update.message.reply_text("Usage: /removeuser <@username or chat_id>")
         return
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Usage: /removeuser <chat_id>")
+    participant, err = _resolve_participant(context.args[0])
+    if err:
+        await update.message.reply_text(err)
         return
-    db.delete_participant(target_id)
+    db.delete_participant(participant['chat_id'])
     await update.message.reply_text(t('en', 'admin_user_removed'))
 
 
@@ -720,7 +719,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += (
             "\n\n👑 *Owner only*\n"
             "/addadmin `<id>` — add an admin\n"
-            "/removeuser `<id>` — delete a participant\n"
+            "/removeuser `<@username or id>` — delete a participant\n"
             "/testsetup — reset your own registration for testing"
         )
     await update.message.reply_text(text, parse_mode='Markdown')
